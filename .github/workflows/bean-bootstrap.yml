@@ -20,6 +20,8 @@ jobs:
         run: |
           sed -i 's/^TERMUX_APP__PACKAGE_NAME="com.termux"/TERMUX_APP__PACKAGE_NAME="app.beanbrowser"/' scripts/properties.sh
           grep -q '^TERMUX_APP__PACKAGE_NAME="app.beanbrowser"' scripts/properties.sh
+          sed -i 's/PACKAGES+=("bzip2")/PACKAGES+=("libbz2")/' scripts/build-bootstraps.sh
+          grep -q 'PACKAGES+=("libbz2")' scripts/build-bootstraps.sh
       - name: Build bootstrap (aarch64)
         run: |
           S=./scripts/build-bootstraps.sh; [ -f "$S" ] || S=./scripts/build-bootstrap.sh
