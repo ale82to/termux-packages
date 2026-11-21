@@ -1,6 +1,7 @@
 name: Bootstrap app.beanbrowser
-on: workflow_dispatch:
-push:
+on:
+  workflow_dispatch:
+  push:
     paths:
       - .github/workflows/bean-bootstrap.yml
 permissions:
@@ -22,7 +23,13 @@ jobs:
       - name: Build bootstrap (aarch64)
         run: |
           S=./scripts/build-bootstraps.sh; [ -f "$S" ] || S=./scripts/build-bootstrap.sh
-          ./scripts/run-docker.sh "$S" --architectures aarch64 -f
+          set -o pipefail
+          ./scripts/run-docker.sh "$S" --architectures aarch64 -f 2>&1 | tee build.log
+      - name: End of the log
+        if: failure()
+        run: |
+          T=$(tail -n 60 build.log 2>/dev/null | tr -d '\r' | sed 's/%/%25/g' | sed -z 's/\n/%0A/g')
+          echo "::error title=build log::$T"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -30,4 +37,3 @@ jobs:
           ls -l bootstrap-aarch64.zip
           gh release delete bean-bootstrap -y --cleanup-tag || true
           gh release create bean-bootstrap bootstrap-aarch64.zip --title "Bootstrap app.beanbrowser" --notes "Termux bootstrap built for app.beanbrowser"
-         
