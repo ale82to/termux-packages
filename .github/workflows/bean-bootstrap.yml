@@ -22,6 +22,10 @@ jobs:
           grep -q '^TERMUX_APP__PACKAGE_NAME="app.beanbrowser"' scripts/properties.sh
           sed -i 's/PACKAGES+=("bzip2")/PACKAGES+=("libbz2")/' scripts/build-bootstraps.sh
           grep -q 'PACKAGES+=("libbz2")' scripts/build-bootstraps.sh
+          sed -i '/mv -f "${BOOTSTRAP_TMPDIR}\/bootstrap-/ s#"\$TERMUX_PACKAGES_DIRECTORY/"#"$TERMUX_PACKAGES_DIRECTORY/output/"#' scripts/build-bootstraps.sh
+          grep -q 'TERMUX_PACKAGES_DIRECTORY/output/"' scripts/build-bootstraps.sh
+          mkdir -p output
+          chmod a+rwx . output
       - name: Build bootstrap (aarch64)
         run: |
           S=./scripts/build-bootstraps.sh; [ -f "$S" ] || S=./scripts/build-bootstrap.sh
@@ -34,9 +38,9 @@ jobs:
           echo "::error title=build log::$T"
       - name: Find the zip
         run: |
-          Z=$(sudo find "$GITHUB_WORKSPACE" /tmp /home /root -name 'bootstrap-aarch64.zip' 2>/dev/null | head -1)
+          Z=$(sudo find "$GITHUB_WORKSPACE" -name 'bootstrap-aarch64.zip' 2>/dev/null | head -1)
           if [ -z "$Z" ]; then
-            T=$( (ls -la "$GITHUB_WORKSPACE"; sudo find / -name 'bootstrap-*.zip' 2>/dev/null) | head -40 | tr '\r' ' ' | sed 's/%/%25/g' | sed -z 's/\n/%0A/g')
+            T=$( (grep -n "mv:\|Creating\|Finished" build.log | tail -10) | tr -d '\r' | cut -c1-200 | sed 's/%/%25/g' | sed -z 's/\n/%0A/g')
             echo "::error title=zip not found::$T"
             exit 1
           fi
