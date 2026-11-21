@@ -24,7 +24,7 @@ jobs:
         run: |
           S=./scripts/build-bootstraps.sh; [ -f "$S" ] || S=./scripts/build-bootstrap.sh
           set -o pipefail
-          ./scripts/run-docker.sh "$S" --architectures aarch64 -f 2>&1 | tee build.log
+          ./scripts/run-docker.sh "$S" --architectures aarch64 2>&1 | tee build.log
       - name: End of the log
         if: failure()
         run: |
