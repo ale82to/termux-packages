@@ -1,5 +1,8 @@
 name: Bootstrap app.beanbrowser
-on: workflow_dispatch
+on: workflow_dispatch:
+push:
+    paths:
+      - .github/workflows/bean-bootstrap.yml
 permissions:
   contents: write
 jobs:
