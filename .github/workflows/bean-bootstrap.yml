@@ -32,10 +32,25 @@ jobs:
         run: |
           T=$(tail -n 60 build.log 2>/dev/null | tr -d '\r' | sed 's/%/%25/g' | sed -z 's/\n/%0A/g')
           echo "::error title=build log::$T"
+      - name: Find the zip
+        run: |
+          Z=$(sudo find "$GITHUB_WORKSPACE" /tmp /home /root -name 'bootstrap-aarch64.zip' 2>/dev/null | head -1)
+          if [ -z "$Z" ]; then
+            T=$( (ls -la "$GITHUB_WORKSPACE"; sudo find / -name 'bootstrap-*.zip' 2>/dev/null) | head -40 | tr '\r' ' ' | sed 's/%/%25/g' | sed -z 's/\n/%0A/g')
+            echo "::error title=zip not found::$T"
+            exit 1
+          fi
+          sudo cp "$Z" "$RUNNER_TEMP/bootstrap-aarch64.zip"
+          sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/bootstrap-aarch64.zip"
+          ls -l "$RUNNER_TEMP/bootstrap-aarch64.zip"
+      - name: Keep the zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-aarch64
+          path: ${{ runner.temp }}/bootstrap-aarch64.zip
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ls -l bootstrap-aarch64.zip
           gh release delete bean-bootstrap -y --cleanup-tag || true
-          gh release create bean-bootstrap bootstrap-aarch64.zip --title "Bootstrap app.beanbrowser" --notes "Termux bootstrap built for app.beanbrowser"
+          gh release create bean-bootstrap "$RUNNER_TEMP/bootstrap-aarch64.zip" --title "Bootstrap app.beanbrowser" --notes "Termux bootstrap built for app.beanbrowser"
