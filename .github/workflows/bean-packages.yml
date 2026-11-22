@@ -1,0 +1,58 @@
+name: Packages app.beanbrowser
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Package names separated by spaces (example: rclone git)"
+        required: true
+        default: "rclone"
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          df -h /
+      - name: Package name
+        run: |
+          sed -i 's/^TERMUX_APP__PACKAGE_NAME="com.termux"/TERMUX_APP__PACKAGE_NAME="app.beanbrowser"/' scripts/properties.sh
+          grep -q '^TERMUX_APP__PACKAGE_NAME="app.beanbrowser"' scripts/properties.sh
+          mkdir -p output
+          chmod -R a+rwx .
+      - name: Build packages (aarch64)
+        env:
+          PKGS: ${{ inputs.packages }}
+        run: |
+          set -o pipefail
+          ./scripts/run-docker.sh ./build-package.sh -a aarch64 $PKGS 2>&1 | tee build.log
+      - name: End of the log
+        if: failure()
+        run: |
+          T=$(tail -n 60 build.log 2>/dev/null | tr -d '\r' | sed 's/%/%25/g' | sed -z 's/\n/%0A/g')
+          echo "::error title=build log::$T"
+      - name: Publish apt repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          mkdir -p $RUNNER_TEMP/repo $RUNNER_TEMP/new
+          cd $RUNNER_TEMP/repo
+          gh release download bean-repo --repo "$GITHUB_REPOSITORY" --pattern '*.deb' --dir . || echo "no previous repo"
+          find "$GITHUB_WORKSPACE/output" -name '*.deb' | while read -r f; do
+            n=$(basename "$f" | tr -c 'A-Za-z0-9._\n-' '.')
+            cp "$f" "$n"
+            cp "$f" "$RUNNER_TEMP/new/$n"
+          done
+          ls "$RUNNER_TEMP/new" | grep -q . || { echo "no .deb produced"; exit 1; }
+          ls -l
+          dpkg-scanpackages -m . /dev/null > Packages
+          sed -i 's#^Filename: \./#Filename: #' Packages
+          gzip -kf Packages
+          apt-ftparchive release . > Release
+          gh release view bean-repo --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create bean-repo --repo "$GITHUB_REPOSITORY" --title "Packages app.beanbrowser" --notes "apt repository for app.beanbrowser"
+          gh release upload bean-repo --repo "$GITHUB_REPOSITORY" --clobber Packages Packages.gz Release $RUNNER_TEMP/new/*.deb
